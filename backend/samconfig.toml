@@ -3,7 +3,7 @@ version = 0.1
 [dev.deploy.parameters]
 stack_name = "student-portal-backend-dev"
 s3_bucket = "student-protal-sam-deployments-dev"
-region = "ap-south-1"
+region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = "Environment=\"dev\" GoogleClientId=\"\" GoogleClientSecret=\"\""
@@ -11,7 +11,7 @@ parameter_overrides = "Environment=\"dev\" GoogleClientId=\"\" GoogleClientSecre
 [stage.deploy.parameters]
 stack_name = "student-portal-backend-stage"
 s3_bucket = "student-protal-sam-deployments-stage"
-region = "ap-south-1"
+region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = "Environment=\"stage\" GoogleClientId=\"\" GoogleClientSecret=\"\""
@@ -19,7 +19,7 @@ parameter_overrides = "Environment=\"stage\" GoogleClientId=\"\" GoogleClientSec
 [prod.deploy.parameters]
 stack_name = "student-portal-backend-prod"
 s3_bucket = "student-protal-sam-deployments-prod"
-region = "ap-south-1"
+region = "us-east-1"
 confirm_changeset = false
 capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = "Environment=\"prod\" GoogleClientId=\"\" GoogleClientSecret=\"\""
