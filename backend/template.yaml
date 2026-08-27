@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Student Portal Serverless Backend
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, stage, prod]
+  GoogleClientId:
+    Type: String
+    Default: ""
+  GoogleClientSecret:
+    Type: String
+    Default: ""
+
+Globals:
+  Function:
+    Timeout: 15
+    Runtime: python3.12
+    MemorySize: 256
+    Tracing: Active
+    Environment:
+      Variables:
+        ENV: !Ref Environment
+        TABLE_NAME: !GetAtt DatabaseStack.Outputs.TableName
+        USER_POOL_ID: !GetAtt AuthStack.Outputs.UserPoolId
+        USER_POOL_CLIENT_ID: !GetAtt AuthStack.Outputs.UserPoolClientId
+
+Resources:
+  DatabaseStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infrastructure/database.yaml
+      Parameters:
+        Environment: !Ref Environment
+
+  AuthStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infrastructure/auth.yaml
+      Parameters:
+        Environment: !Ref Environment
+        GoogleClientId: !Ref GoogleClientId
+        GoogleClientSecret: !Ref GoogleClientSecret
+
+  FrontendStack:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: infrastructure/frontend.yaml
+      Parameters:
+        Environment: !Ref Environment
+
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub student-portal-common-${Environment}
+      ContentUri: layers/common_layer/
+      CompatibleRuntimes:
+        - python3.12
+    Metadata:
+      BuildMethod: python3.12
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              audience:
+                - !GetAtt AuthStack.Outputs.UserPoolClientId
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${AuthStack.Outputs.UserPoolId}"
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowOrigins:
+          - "http://localhost:4200"
+          - !Sub "https://${FrontendStack.Outputs.CloudFrontDomainName}"
+
+  PublicAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/auth/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:SignUp
+                - cognito-idp:ConfirmSignUp
+                - cognito-idp:InitiateAuth
+                - cognito-idp:ForgotPassword
+                - cognito-idp:ConfirmForgotPassword
+                - cognito-idp:AdminAddUserToGroup
+              Resource: !GetAtt AuthStack.Outputs.UserPoolArn
+      Events:
+        AuthRoutes:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /auth/{proxy+}
+            Method: ANY
+            Auth:
+              Authorizer: NONE
+
+  CourseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/courses/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !GetAtt DatabaseStack.Outputs.TableName
+      Events:
+        GetCourses:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /courses
+            Method: GET
+        CreateCourse:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /courses
+            Method: POST
+        DeleteCourse:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /courses/{course_id}
+            Method: DELETE
+
+  EnrollmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/enrollments/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !GetAtt DatabaseStack.Outputs.TableName
+      Events:
+        ApplyCourse:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /enrollments/apply
+            Method: POST
+        GetMyEnrollments:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /enrollments/my
+            Method: GET
+        ListPending:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /enrollments/pending
+            Method: GET
+        UpdateStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /enrollments/{enrollment_id}/status
+            Method: PUT
+        DropCourse:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /enrollments/{enrollment_id}
+            Method: DELETE
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+  UserPoolId:
+    Value: !GetAtt AuthStack.Outputs.UserPoolId
+  UserPoolClientId:
+    Value: !GetAtt AuthStack.Outputs.UserPoolClientId
+  CloudFrontUrl:
+    Value: !GetAtt FrontendStack.Outputs.CloudFrontDomainName
+  FrontendBucketName:
+    Value: !GetAtt FrontendStack.Outputs.FrontendBucketName
