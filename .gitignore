@@ -1,0 +1,31 @@
+# SAM Build Artifacts
+.aws-sam/
+.aws-sam-build/
+
+# Python Virtual Environments & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# OS Files
+.DS_Store
+generate_project.py
+student-portal.zip
+
+
+# Angular build and cache
+.angular/
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
