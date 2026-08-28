@@ -58,8 +58,6 @@ Resources:
       ContentUri: layers/common_layer/
       CompatibleRuntimes:
         - python3.12
-    Metadata:
-      BuildMethod: python3.12
 
   HttpApi:
     Type: AWS::Serverless::HttpApi
@@ -82,12 +80,10 @@ Resources:
           - DELETE
           - OPTIONS
         AllowHeaders:
-          - Authorization
-          - Content-Type
+          - "*"
         AllowOrigins:
-          - "http://localhost:4200"
-          - !Sub "https://${FrontendStack.Outputs.CloudFrontDomainName}"
-
+          - "*"
+        MaxAge: 600
   PublicAuthFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -107,12 +103,12 @@ Resources:
                 - cognito-idp:AdminAddUserToGroup
               Resource: !GetAtt AuthStack.Outputs.UserPoolArn
       Events:
-        AuthRoutes:
+        AuthPostRoutes:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
             Path: /auth/{proxy+}
-            Method: ANY
+            Method: POST
             Auth:
               Authorizer: NONE
 

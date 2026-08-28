@@ -13,7 +13,15 @@ def lambda_handler(event, context):
     method = event.get("requestContext", {}).get("http", {}).get("method")
     
     if method == "OPTIONS":
-        return format_response(200, {})
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": ""
+        }
         
     try:
         body = json.loads(event.get("body", "{}")) if event.get("body") else {}
